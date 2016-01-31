@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+  <p>Hello World! {{number}}</p>
+  <div id='div_username_input'>
+    <form action="index.html" method="post">
+      <p>Logged in as <b>{{username}}</b></p>
+      Username: <input name='username'>
+      <input type='submit', value='Submit'><br>
+    </form>
+  </div>
+</div>
+{% endblock %}
