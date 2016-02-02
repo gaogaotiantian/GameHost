@@ -1,13 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
-<div>
-  <p>Hello World! {{number}}</p>
+<script>
+function ParsePacket(pktStr) {
+  pkt = JSON.parse(pktStr)
+  if (pkt['type'] == 'GetRoomList') {
+    console.log(pkt)
+    for (var i in pkt['roomList']) {
+      room = pkt['roomList'][i]
+      console.log(room)
+      $('#join_room_sel').empty();
+      $('#join_room_sel')
+        .append($("<option></option>")
+          .attr("value", room['roomid'])
+          .text(room['roomid'] + ' | ' + room['roomAdmin'] + ' | ' + room['roomType']));
+    }
+  }
+}
+function RefreshRoomList() {
+  $.post("{{action_url}}",
+  {
+    action: 'GetRoomList'
+  },
+  function(data, status) {
+    ParsePacket(data);
+  });
+}
+</script>
+<div id='content'>
   <div id='div_username_input'>
     <form action="index.html" method="post">
       <p>Logged in as <b>{{username}}</b></p>
       Username: <input name='username'>
-      <input type='submit', value='Submit'><br>
+      <input type='submit', value='Log in'><br>
     </form>
+  </div>
+  <div id='div_create_room'>
+    <form action="create_room" method='post'>
+        <input type='radio' name='room_type' value='chat_room' checked> Chat Room<br>
+        <input type='submit' value='Create Room'><br>
+    </form>
+  </div>
+  <div id='div_join_room'>
+    <form action="join_room" method='post'>
+      <select id="join_room_sel" name="roomid" size=10>
+      </select><br>
+      <input type="submit" value='Join Room'>
+    </form>
+    <button onclick='RefreshRoomList()'>Refresh</button>
   </div>
 </div>
 {% endblock %}

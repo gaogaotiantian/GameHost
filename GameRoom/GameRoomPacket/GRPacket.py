@@ -17,25 +17,27 @@ type =
 '''
 class GRPacket:
     def __init__(self, data = ''):
+        self.data = {}
+        self.validType = ['InitTest', 'CreateRoom', 'CheckRoomId', 'AskOneMessage', 'UpdateRoomInfo', 'GetRoomList', 'JoinRoom', 'Empty']
+        self.validRoomType = ['chat_room']
+        self.validTarget = ['server', 'room_generic', 'host', 'front_end']
         if data == '':
-            self.data = {}
             self.data['status'] = 'Success'
-            self.data['direction'] = ''
-            self.data['type'] = ''
-            self.data['user'] = ''
-            self.data['roomid'] = ''
-            self.validType = ['InitTest', 'CreateRoom', 'CheckRoomId']
+        elif data.startswith('GR_'):
+            if data == 'GR_FAIL':
+                self.MakeFailRespond()
+            elif data == 'GR_SUCCESS':
+                self.MakeSuccessRespond()
+            elif data == 'GR_EMPTY':
+                self.MakeEmptyRespond()
+            else:
+                raise Exception('Unknown Initialization!', data)
         else:
             self.Deserialize(data)
     def SetSuccess(self):
         self.data['status'] = 'Success'
     def SetFail(self):
         self.data['status'] = 'Fail'
-    def IsSuccess(self):
-        return self.data['status'] == 'Success'
-    def IsFail(self):
-        return self.data['status'] == 'Fail'
-
     def SetRequest(self):
         self.data['direction'] = 'Request'
     def SetRespond(self):
@@ -55,26 +57,37 @@ class GRPacket:
             return self.data['type'] 
         else:
             raise Exception('No type!')
-    def IsInitTest(self):
-        return self.GetType() == 'InitTest'
-    def IsCreateRoom(self):
-        return self.GetType() == 'CreateRoom'
-    def IsCheckRoomId(self):
-        return self.GetType() == 'CheckRoomId'
+    def SetTarget(self, target):
+        if target in self.validTarget:
+            self.data['target'] = target
+        else:
+            raise Exception('Wrong target!', target)
+    def GetTarget(self):
+        return self.data['target']
+    def SetRoomType(self, roomType):
+        if roomType in self.validRoomType:
+            self.data['roomType'] = roomType
+        else:
+            raise Exception("Not valid room type!")
+    def GetRoomType(self):
+        return self.data['roomType']
+
     def SetUser(self, username):
         self.data['user'] = username
     def GetUser(self):
-        if self.data['type'] == 'CreateRoom':
-            return self.data['user']
-        else:
-            raise Exception("Can't get user!")
+        return self.data['user']
+    def SetRoomAdmin(self, roomAdmin):
+        self.data['roomAdmin'] = roomAdmin
+    def GetRoomAdmin(self):
+        return self.data['roomAdmin']
     def SetRoomId(self, roomid):
         self.data['roomid'] = roomid
     def GetRoomId(self):
-        if self.data['type'] == 'CreateRoom' or self.data['type'] == 'CheckRoomId':
-            return self.data['roomid']
-        else:
-            raise Exception("Tried to read roomid when not Creating the room")
+        return self.data['roomid']
+    def SetRoomList(self, roomList):
+        self.data['roomList'] = roomList
+    def GetRoomList(self, roomList):
+        return self.data['roomList']
     def SetResult(self, result):
         self.data['result'] = result
     def GetResult(self):
@@ -82,34 +95,120 @@ class GRPacket:
             return self.data['result']
         else:
             raise Exception("Tried to read result when not supposed to")
+    def SetUserList(self, userList):
+        self.data['userList'] = userList
+    def GetUserList(self):
+        return self.data['userList']
+    # Is functions with Get*()
+    def IsInitTest(self):
+        return self.GetType() == 'InitTest'
+    def IsSuccess(self):
+        return self.data['status'] == 'Success'
+    def IsFail(self):
+        return self.data['status'] == 'Fail'
+    def IsCreateRoom(self):
+        return self.GetType() == 'CreateRoom'
+    def IsCheckRoomId(self):
+        return self.GetType() == 'CheckRoomId'
+    def IsAskOneMessage(self):
+        return self.GetType() == 'AskOneMessage'
+    def IsGetRoomList(self):
+        return self.GetType() == 'GetRoomList'
+    def IsJoinRoom(self):
+        return self.GetType() == 'JoinRoom'
+    def IsEmpty(self):
+        return self.GetType() == 'Empty'
+    def IsToServer(self):
+        return self.GetTarget() == 'server'
+    def IsToRoom(self):
+        return self.GetTarget().startswith('room')
+    # Directly make a packet using internal functions
     def MakeInitTestRequest(self):
         self.SetSuccess()
         self.SetRequest()
+        self.SetTarget('server')
         self.SetType('InitTest')
-    def MakeInitTestResponse(self):
+    def MakeInitTestRespond(self):
         self.SetSuccess()
         self.SetRespond()
+        self.SetTarget('host')
         self.SetType('InitTest')
-    def MakeCreateRoomRequest(self, username):
+    def MakeCreateRoomRequest(self, username, roomType):
         self.SetRequest()
         self.SetType('CreateRoom')
+        self.SetTarget('server')
+        self.SetRoomType(roomType)
         self.SetUser(username)
-    def MakeCreateRoomResponse(self, username, roomid):
+    def MakeCreateRoomRespond(self, username, roomid):
         self.SetSuccess()
         self.SetRespond()
+        self.SetTarget('host')
         self.SetType('CreateRoom')
         self.SetUser(username)
         self.SetRoomId(roomid)
     def MakeHasRoomRequest(self, roomid):
         self.SetRequest()
+        self.SetTarget('server')
         self.SetType('CheckRoomId')
         self.SetRoomId(roomid)
-    def MakeHasRoomResponse(self, roomid, result):
+    def MakeHasRoomRespond(self, roomid, result):
+        self.SetSuccess()
         self.SetRespond()
+        self.SetTarget('host')
         self.SetType('CheckRoomId')
         self.SetRoomId(roomid)
         self.SetResult(result)
-    def MakeFailResponse(self):
+    def MakeGetRoomInfoRequest(self, roomid):
+        self.SetRequest()
+        self.SetTarget('server')
+        self.SetType('GetRoomInfo')
+        self.SetRoomId(roomid)
+    def MakeGetRoomInfoRespond(self, roomid, roomAdmin, userList):
+        self.SetSuccess()
+        self.SetRespond()
+        self.SetTarget('host')
+        self.SetType('GetRoomInfo')
+        self.SetRoomId(roomid)
+        self.SetRoomAdmin(roomAdmin)
+        self.SetUserList(userList)
+    def MakeAskOneMessageRequest(self, roomid, username):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('AskOneMessage')
+        self.SetRoomId(roomid)
+        self.SetUser(username)
+    def MakeUpdateRoomInfoRespond(self, roomid, roomAdmin, userList):
+        self.SetSuccess()
+        self.SetRespond()
+        self.SetTarget('front_end')
+        self.SetType('UpdateRoomInfo')
+        self.SetRoomId(roomid)
+        self.SetRoomAdmin(roomAdmin)
+        self.SetUserList(userList)
+    def MakeGetRoomListRequest(self):
+        self.SetRequest()
+        self.SetTarget('server')
+        self.SetType('GetRoomList')
+    def MakeGetRoomListRespond(self, roomList):
+        self.SetSuccess()
+        self.SetRespond()
+        self.SetTarget('front_end')
+        self.SetType('GetRoomList')
+        self.SetRoomList(roomList)
+    def MakeJoinRoomRequest(self, username, roomid):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('JoinRoom')
+        self.SetRoomId(roomid)
+        self.SetUser(username)
+    def MakeEmptyRespond(self):
+        self.SetSuccess()
+        self.SetTarget('front_end')
+        self.SetType('Empty')
+    def MakeSuccessRespond(self):
+        self.SetSuccess()
+        self.SetRespond()
+    def MakeFailRespond(self):
         self.SetFail()
         self.SetRespond()
     def Serialize(self):

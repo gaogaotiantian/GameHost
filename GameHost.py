@@ -10,8 +10,10 @@ class GameRoomClient:
         try:
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(self.conn)
+            print 'Connected to conn!'
             sdpkt = GRPacket()
             sdpkt.MakeInitTestRequest()
+            print 'Made init packet'
             sock.send(sdpkt.Serialize())
             sock.settimeout(4)
             data = sock.recv(1024)
@@ -22,7 +24,7 @@ class GameRoomClient:
             else:
                 print ("Error when connecting to GameRoom!")
                 self.connected = False
-            #self.sock.close()
+            sock.close()
         except Exception as e:
             print e
             print ("Failed to connect to %s" % conn)
@@ -36,15 +38,21 @@ class GameRoomClient:
         sock.close()
         return rcvpkt
 
-    def CreateRoom(self, username):
+    def CreateRoom(self, username, roomType):
         sdpkt = GRPacket()
-        sdpkt.MakeCreateRoomRequest(username)
+        sdpkt.MakeCreateRoomRequest(username, roomType)
         rcvpkt = self.SendAndRecvPacket(sdpkt)
         if rcvpkt.IsSuccess():
             print rcvpkt.Serialize()
             return rcvpkt.GetRoomId()
         else:
-            return 'Fail'
+            return None
+    def JoinRoom(self, username, roomid):
+        sdpkt = GRPacket()
+        sdpkt.MakeJoinRoomRequest(username, roomid)
+        rcvpkt = self.SendAndRecvPacket(sdpkt)
+        return rcvpkt.IsSuccess()
+
     def HasRoom(self, roomid):
         sdpkt = GRPacket()
         sdpkt.MakeHasRoomRequest(roomid)
@@ -53,6 +61,21 @@ class GameRoomClient:
             return rcvpkt.GetResult()
         else:
             return Fail
+    def GetRoomInfo(self, roomid):
+        sdpkt=GRPacket()
+        sdpkt.MakeGetRoomInfoRequest(roomid)
+        rcvpkt = self.SendAndRecvPacket(sdpkt)
+        return rcvpkt
+    def AskOneMsg(self, roomid, username):
+        sdpkt = GRPacket()
+        sdpkt.MakeAskOneMessageRequest(roomid, username)
+        rcvpkt = self.SendAndRecvPacket(sdpkt)
+        return rcvpkt
+    def GetRoomList(self):
+        sdpkt = GRPacket()
+        sdpkt.MakeGetRoomListRequest()
+        rcvpkt = self.SendAndRecvPacket(sdpkt)
+        return rcvpkt
         
 
 gameRoom = GameRoomClient()
@@ -61,33 +84,63 @@ gameRoom = GameRoomClient()
 @app.route('/index.html', methods=['GET', 'POST'])
 def index():
     username = request.cookies.get('username')
-    resp = make_response(render_template('index.html', username=username))
+    resp = make_response(render_template('index.html', username=username, action_url = url_for('action')))
     if request.method == 'POST':
         username = request.form['username'] 
         if username is not None:
-            resp = make_response(render_template('index.html', username=username))
+            resp = make_response(render_template('index.html', username=username, action_url = url_for('action')))
             resp.set_cookie('username', username)
         else:
             print "Error!"
             resp = make_response('Error!')
     return resp
+@app.route('/action', methods=['GET', 'POST'])
+def action():
+    username = request.cookies.get('username')
+    if request.method == 'POST':
+        if request.form['action'] == 'AskOneMsg':
+            roomid = request.form['roomid']
+            print 'AskOneMsg from ', roomid, username
+            return gameRoom.AskOneMsg(roomid, username).Serialize()
+        if request.form['action'] == 'GetRoomList':
+            return gameRoom.GetRoomList().Serialize()
+
 @app.route('/room/<roomid>')
 def room(roomid):
     if gameRoom.HasRoom(roomid):
-        return 'Hello world' + roomid
+        return render_template('room.html', roomid = roomid, action_url = url_for('action'))
     else:
         return 'No Such Room!'
 
-@app.route('/create_room.html')
+@app.route('/create_room', methods=['GET', 'POST'])
 def create_room():
     username = request.cookies.get('username')
-    if username == '' or username == None:
-        return 'You need to have a username!'
-    else:
-        roomid = gameRoom.CreateRoom(username)
-        if roomid == 'Fail':
-            return 'Create room failed!'
+    if request.method == 'POST':
+        if username == '' or username == None:
+            return 'You need to have a username to create room!'
         else:
-            return redirect(url_for('room', roomid = roomid))
+            roomType = request.form['room_type']
+            roomid = gameRoom.CreateRoom(username, roomType)
+            if roomid == None:
+                return 'Create room failed!'
+            else:
+                return redirect(url_for('room', roomid = roomid))
+    else:
+        return 'You are not supposed to open this page by your own!'
+    
+@app.route('/join_room', methods=['POST'])
+def join_room():
+    username = request.cookies.get('username')
+    if request.method == 'POST':
+        if username == '' or username == None:
+            return 'You need to have a username to create room!'
+        else:
+            roomid = request.form['roomid']
+            if gameRoom.HasRoom(roomid):
+                if gameRoom.JoinRoom(username, roomid):
+                    return redirect(url_for('room', roomid = roomid))
+            return redirect(url_for('index'))
+
+    
 if __name__ == '__main__':
     app.run(debug=True, host='192.168.0.25')
