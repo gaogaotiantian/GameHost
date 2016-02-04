@@ -3,47 +3,87 @@ import socket
 import os
 import time
 from GameRoomPacket.GRPacket import GRPacket
+class User:
+    def __init__(self, username):
+        self.lastActivate = time.time()
+        self.username = username
+        self.msgList = []
+    def AddMsg(self, pkt):
+        self.msgList.append(pkt)
+    def GetMsg(self):
+        self.Refresh()
+        if len(self.msgList) == 0:
+            return GRPacket('GR_EMPTY')
+        else:
+            return self.msgList.pop(0)
+    def Refresh(self):
+        self.lastActivate = time.time()
+    def CheckTimeInterval(self, interval):
+        return time.time() - self.lastActivate > interval
+
 class GameRoom:
-    def __init__(self, roomId, roomType):
-        self.roomId = roomId
+    def __init__(self, roomid, roomType):
+        self.roomid = roomid
         self.roomType = roomType
         self.admin = ''
-        self.userList = []
+        self.userList = {}
         self.msgQueueList = {}
+        self.userClearTime = 5
+        self.checkInterval = 10
+        self.lastCheckTime = time.time()
     def SetAdmin(self, username):
         self.admin = username
     def AddUser(self, username):
         if username in self.userList:
+            self.GenRoomInfoUpdate()
             return False
         else:
-            self.userList.append(username)
-            self.msgQueueList[username] = []
+            self.userList[username] = User(username)
             self.GenRoomInfoUpdate()
             return True
     def RemoveUser(self, username):
         try:
-            self.userList.remove(username)
-            del self.msgQueueList[username]
+            del self.userList[username]
             return True
         except Exception as e:
             print 'Exception' + str(e) + 'raised when remove user' + username
             return False
+    def RemoveUserList(self, usernameList):
+        if usernameList == []:
+            return True
+        try:
+            for username in usernameList:
+                self.RemoveUser(username)
+            self.GenRoomInfoUpdate()
+            return True
+        except Exception as e:
+            print 'Exception' + str(e) + 'raised when remove usernameList' + usernameList
+            return False
+    def CheckAllUsers(self):
+        rUserList = []
+        for user in self.userList:
+            if self.userList[user].CheckTimeInterval(self.userClearTime):
+                rUserList.append(user)
+        self.RemoveUserList(rUserList)
+    def CheckEverything(self):
+        if time.time() - self.lastCheckTime > self.checkInterval:
+            self.lastCheckTime = time.time()
+            self.CheckAllUsers();
     def GenRoomInfoUpdate(self):
         pkt = GRPacket()
-        pkt.MakeUpdateRoomInfoRespond(self.roomId, self.admin, self.userList)
-        for q in self.msgQueueList.itervalues():
-            q.append(pkt)
+        pkt.MakeUpdateRoomInfoRespond(self.roomid, self.admin, self.userList.keys())
+        for user in self.userList.itervalues():
+            user.AddMsg(pkt)
     def GetOneMsg(self, username):
-        if len(self.msgQueueList[username]) == 0:
-            sdpkt = GRPacket('GR_EMPTY')
-            return sdpkt
+        self.CheckEverything()
+        if username in self.userList:
+            return self.userList[username].GetMsg()
         else:
-            return self.msgQueueList[username].pop(0)
+            return GRPacket('GR_FAIL')
     def ParsePacket(self, rcvpkt):
-        assert rcvpkt.GetRoomId() == self.roomId
+        assert rcvpkt.GetRoomId() == self.roomid
         if rcvpkt.IsAskOneMessage():
             username = rcvpkt.GetUser()
-            self.AddUser(username)
             return self.GetOneMsg(username)
         elif rcvpkt.IsJoinRoom():
             username = rcvpkt.GetUser()
@@ -54,64 +94,28 @@ class GameRoom:
             sdpkt = GRPacket('GR_FAIL')
             return sdpkt
 
-class GameRoomList:
-    def __init__(self):
-        self.rooms = []
-    def __contains__(self, roomid):
-        return any([room.roomId == roomid for room in self.rooms])
-    def __getitem__(self, k):
-        if k >= len(self.rooms):
-            raise IndexError
-        else:
-            return self.rooms[k]
-    def AddRoom(self, username, roomid, roomType):
-        if roomid in self.rooms:
-            raise Exception("Added a room with same room number")
-        else:
-            newRoom = GameRoom(roomid, roomType)
-            newRoom.SetAdmin(username)
-            newRoom.AddUser(username)
-            self.rooms.append(newRoom)
-    def GetRoom(self, roomid):
-        if roomid in self:
-            for room in self.rooms:
-                if room.roomId == roomid:
-                    return room
-            assert False
-        else:
-            return None
-    def ParsePacket(self, rcvpkt):
-        assert rcvpkt.IsToRoom()
-        roomid = rcvpkt.GetRoomId()
-        selectRoom = self.GetRoom(roomid)
-        if selectRoom is not None:
-            sdpkt = selectRoom.ParsePacket(rcvpkt)
-            return sdpkt
-        else:
-            sdpkt = GRPacket('GR_FAIL')
-            return sdpkt
-        assert False
-
-
 class GameRoomServer:
     def __init__(self):
-        self.roomList = GameRoomList()
+        self.roomList = {}
         self.currRoomId = 10000
         self.validRoomType = ['chat_room']
     def CreateRoom(self, username, roomType):
-        self.roomList.AddRoom(username, str(self.currRoomId), roomType)
         if roomType in self.validRoomType: 
-            self.roomList.AddRoom(username, str(self.currRoomId), roomType)
+            roomid = str(self.currRoomId)
+            newRoom = GameRoom(roomid, roomType)
+            newRoom.SetAdmin(username)
+            newRoom.AddUser(username)
+            self.roomList[roomid] = newRoom
             print 'Created a new room %d by %s' % (self.currRoomId, username)
             self.currRoomId += 1
-            return self.currRoomId - 1
+            return roomid
         else:
             raise Exception("roomType %s wrong or roomid %d duplicate" % (roomType, self.currRoomId))
     def GetRoomList(self):
         roomlst = []
-        for room in self.roomList:
+        for room in self.roomList.itervalues():
             data = {}
-            data['roomid'] = room.roomId
+            data['roomid'] = room.roomid
             data['roomType'] = room.roomType
             data['roomAdmin'] = room.admin
             roomlst.append(data)
@@ -122,6 +126,7 @@ class GameRoomServer:
         rcvpkt = GRPacket(data)
         sdpkt  = GRPacket('GR_FAIL')
         assert rcvpkt.IsRequest()
+        # If the packet is for server
         if rcvpkt.IsToServer():
             if rcvpkt.IsInitTest():
                 sdpkt.MakeInitTestRespond()
@@ -139,8 +144,13 @@ class GameRoomServer:
                 sdpkt.MakeGetRoomListRespond(roomList)
             else:
                 sdpkt.MakeFailRespond()
+        # If the packet is for a specific room
         elif rcvpkt.IsToRoom:
-            sdpkt = self.roomList.ParsePacket(rcvpkt)
+            roomid = rcvpkt.GetRoomId()
+            if self.HasRoom(roomid):
+                sdpkt = self.roomList[roomid].ParsePacket(rcvpkt)
+            else:
+                sdpkt = GRPacket('GR_FAIL')
         return sdpkt
 
 

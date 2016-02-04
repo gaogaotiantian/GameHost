@@ -100,17 +100,24 @@ def action():
     if request.method == 'POST':
         if request.form['action'] == 'AskOneMsg':
             roomid = request.form['roomid']
-            print 'AskOneMsg from ', roomid, username
             return gameRoom.AskOneMsg(roomid, username).Serialize()
+        if request.form['action'] == 'GetRoomInfo':
+            roomid = request.form['roomid']
+            return gameRoom.GetRoomInfo(roomid)
         if request.form['action'] == 'GetRoomList':
             return gameRoom.GetRoomList().Serialize()
 
 @app.route('/room/<roomid>')
 def room(roomid):
-    if gameRoom.HasRoom(roomid):
-        return render_template('room.html', roomid = roomid, action_url = url_for('action'))
+    username = request.cookies.get('username')
+    if username == '' or username == None:
+        return 'You need to have a username to join room!'
     else:
-        return 'No Such Room!'
+        if gameRoom.HasRoom(roomid):
+            if gameRoom.JoinRoom(username, roomid):
+                return render_template('room.html', roomid = roomid, action_url = url_for('action'))
+            
+    return 'No Such Room!'
 
 @app.route('/create_room', methods=['GET', 'POST'])
 def create_room():
@@ -136,10 +143,7 @@ def join_room():
             return 'You need to have a username to create room!'
         else:
             roomid = request.form['roomid']
-            if gameRoom.HasRoom(roomid):
-                if gameRoom.JoinRoom(username, roomid):
-                    return redirect(url_for('room', roomid = roomid))
-            return redirect(url_for('index'))
+            return redirect(url_for('room', roomid = roomid))
 
     
 if __name__ == '__main__':

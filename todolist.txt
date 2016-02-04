@@ -1,0 +1,6 @@
+front-end
+    index.html 
+        format
+game host
+game room
+    only print meaningful packet
