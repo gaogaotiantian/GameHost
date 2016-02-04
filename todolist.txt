@@ -1,6 +1,14 @@
 front-end
     index.html 
         format
+    room.html
+        chat
+
 game host
+
 game room
+    clean inactive rooms
     only print meaningful packet
+
+GRPacket
+    chat packet

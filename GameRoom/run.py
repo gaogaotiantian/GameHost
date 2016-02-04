@@ -80,6 +80,8 @@ class GameRoom:
             return self.userList[username].GetMsg()
         else:
             return GRPacket('GR_FAIL')
+    def GetUserNum(self):
+        return len(self.userList)
     def ParsePacket(self, rcvpkt):
         assert rcvpkt.GetRoomId() == self.roomid
         if rcvpkt.IsAskOneMessage():
@@ -99,6 +101,8 @@ class GameRoomServer:
         self.roomList = {}
         self.currRoomId = 10000
         self.validRoomType = ['chat_room']
+        self.lastCheckTime = time.time()
+        self.checkInterval = 10
     def CreateRoom(self, username, roomType):
         if roomType in self.validRoomType: 
             roomid = str(self.currRoomId)
@@ -111,6 +115,11 @@ class GameRoomServer:
             return roomid
         else:
             raise Exception("roomType %s wrong or roomid %d duplicate" % (roomType, self.currRoomId))
+    def RemoveRoom(self, roomid):
+        if roomid in self.roomList:
+            del self.roomList[roomid]
+        else:
+            raise Exception("Try to remove room %s but it did not exist" % roomid)
     def GetRoomList(self):
         roomlst = []
         for room in self.roomList.itervalues():
@@ -122,9 +131,22 @@ class GameRoomServer:
         return roomlst
     def HasRoom(self, roomid):
         return roomid in self.roomList
+    def CheckEmptyRoom(self):
+        rmvIdList = []
+        for roomid in self.roomList:
+            self.roomList[roomid].CheckEverything()
+            if self.roomList[roomid].GetUserNum() == 0:
+                rmvIdList.append(roomid)
+        for rmvId in rmvIdList:
+            self.RemoveRoom(rmvId)
+    def CheckEverything(self):
+        if time.time() - self.lastCheckTime > self.checkInterval:
+            self.lastCheckTime = time.time()
+            self.CheckEmptyRoom()
     def ParseData(self, data):
         rcvpkt = GRPacket(data)
         sdpkt  = GRPacket('GR_FAIL')
+        self.CheckEverything()
         assert rcvpkt.IsRequest()
         # If the packet is for server
         if rcvpkt.IsToServer():

@@ -9,3 +9,7 @@ p {
     text-align: center;
     width: 1080px;
 }
+#join_room_sel {
+    overflow-y:auto;
+    width:500px;
+}

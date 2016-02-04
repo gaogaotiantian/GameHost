@@ -5,10 +5,10 @@ function ParsePacket(pktStr) {
   pkt = JSON.parse(pktStr)
   if (pkt['type'] == 'GetRoomList') {
     console.log(pkt)
+    $('#join_room_sel').empty();
     for (var i in pkt['roomList']) {
       room = pkt['roomList'][i]
       console.log(room)
-      $('#join_room_sel').empty();
       $('#join_room_sel')
         .append($("<option></option>")
           .attr("value", room['roomid'])
