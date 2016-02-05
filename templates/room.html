@@ -14,7 +14,7 @@ function ParsePacket(pktStr) {
   } else if (pkt['type'] == 'PostChat') {
     $('#chat_show_text').val($('#chat_show_text').val() + pkt['user'] + ': ' + pkt['msg'] + '\n')
   } else if (pkt['type'] == 'InvalidRoom') {
-      window.location.href = {{index_url}};
+      window.location.href = '{{index_url}}';
   } else {
       console.log(pkt)
   }
