@@ -5,11 +5,30 @@ p {
     font-family: 'Times New Roman';
     font-size: 30px;
 }
-.content {
+body{
     text-align: center;
-    width: 1080px;
+}
+#content {
+    text-align: center;
 }
 #join_room_sel {
     overflow-y:auto;
-    width:500px;
+    width:20em;
+}
+#chat_show_text {
+    margin:1em;
+    width:90%;
+}
+#chat_area {
+    height:5em;
+    width:80%;
+    vertical-align:bottom;
+}
+#send_chat{
+    border:1em;
+    padding:0;
+    margin:0;
+    line-height:normal;
+    height:5em;
+    width:10%;
 }

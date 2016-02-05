@@ -7,7 +7,6 @@ front-end
 game host
 
 game room
-    clean inactive rooms
     only print meaningful packet
 
 GRPacket

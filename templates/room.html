@@ -8,12 +8,15 @@ function ParsePacket(pktStr) {
   console.log(pkt)
   console.log(pkt['type'])
   if (pkt['type'] == 'UpdateRoomInfo') {
-    console.log('in')
     $('#room_number').text('您现在在' + roomid + '号房间');
     $('#room_admin').text('房主是' + pkt['roomAdmin']);
     $('#user_list').text('用户有' + pkt['userList']);
+  } else if (pkt['type'] == 'PostChat') {
+    $('#chat_show_text').val($('#chat_show_text').val() + pkt['user'] + ': ' + pkt['msg'] + '\n')
+  } else if (pkt['type'] == 'InvalidRoom') {
+      window.location.href = {{index_url}};
   } else {
-    
+      console.log(pkt)
   }
 }
 function AskOneMsg() {
@@ -26,16 +29,43 @@ function AskOneMsg() {
     ParsePacket(data);
   });
 }
+function PostChat() {
+  var msg = $("#chat_area").val();
+  $("#chat_area").val("");
+  $.post("{{action_url}}",
+  {
+    action: 'PostChat',
+    roomid: roomid,
+    message: msg
+  },
+  function(data, status) {
+    ParsePacket(data);
+  });
+}
 $(document).ready(function() {
   AskOneMsg();
   setInterval(AskOneMsg, 1000);
+  // Detect enter from textarea
+  $("#chat_area").keypress(function(e) {
+    console.log(e)
+    if (e.which == 10 || e.which == 13) {
+      e.preventDefault();
+      PostChat();
+    }
+  });
 });
 </script>
   <div class='basic_room_info'>
     <p id='room_number'>您现在在号房间</h1>
     <p id='room_admin'>房主是</h2>
     <p id='user_list'>用户有</p>
-    <button onclick='AskOneMsg()'>AskOneMsg</button>
+  </div>
+  <div>
+    <textarea id='chat_show_text', rows="15", cols="100", readonly></textarea><br>
+    <div class="form-inline">
+    <textarea id='chat_area', rows = "3", cols="80"></textarea>
+    <button id='send_chat' onclick='PostChat()'>Send</button>
+    </div>
   </div>
 </div>
 {% endblock %}

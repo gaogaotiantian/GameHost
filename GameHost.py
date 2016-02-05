@@ -76,6 +76,11 @@ class GameRoomClient:
         sdpkt.MakeGetRoomListRequest()
         rcvpkt = self.SendAndRecvPacket(sdpkt)
         return rcvpkt
+    def PostChat(self, roomid, username, msg):
+        sdpkt = GRPacket()
+        sdpkt.MakePostChatRequest(roomid, username, msg)
+        rcvpkt = self.SendAndRecvPacket(sdpkt)
+        return rcvpkt
         
 
 gameRoom = GameRoomClient()
@@ -106,6 +111,11 @@ def action():
             return gameRoom.GetRoomInfo(roomid)
         if request.form['action'] == 'GetRoomList':
             return gameRoom.GetRoomList().Serialize()
+        if request.form['action'] == 'PostChat':
+            print 'PostChat!'
+            roomid = request.form['roomid']
+            msg = request.form['message']
+            return gameRoom.PostChat(roomid = roomid, username = username, msg = msg).Serialize()
 
 @app.route('/room/<roomid>')
 def room(roomid):
@@ -115,7 +125,7 @@ def room(roomid):
     else:
         if gameRoom.HasRoom(roomid):
             if gameRoom.JoinRoom(username, roomid):
-                return render_template('room.html', roomid = roomid, action_url = url_for('action'))
+                return render_template('room.html', roomid = roomid, action_url = url_for('action'), index_url = url_for('index'))
             
     return 'No Such Room!'
 

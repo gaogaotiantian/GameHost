@@ -69,19 +69,25 @@ class GameRoom:
         if time.time() - self.lastCheckTime > self.checkInterval:
             self.lastCheckTime = time.time()
             self.CheckAllUsers();
+    def SendPktToEveryone(self, pkt):
+        for user in self.userList.itervalues():
+            user.AddMsg(pkt)
     def GenRoomInfoUpdate(self):
         pkt = GRPacket()
         pkt.MakeUpdateRoomInfoRespond(self.roomid, self.admin, self.userList.keys())
-        for user in self.userList.itervalues():
-            user.AddMsg(pkt)
+        self.SendPktToEveryone(pkt)
     def GetOneMsg(self, username):
         self.CheckEverything()
         if username in self.userList:
             return self.userList[username].GetMsg()
         else:
-            return GRPacket('GR_FAIL')
+            return GRPacket('GR_INVALIDROOM')
     def GetUserNum(self):
         return len(self.userList)
+    def PostChat(self, username, msg):
+        pkt = GRPacket()
+        pkt.MakePostChatRespond(self.roomid, username, msg)
+        self.SendPktToEveryone(pkt)
     def ParsePacket(self, rcvpkt):
         assert rcvpkt.GetRoomId() == self.roomid
         if rcvpkt.IsAskOneMessage():
@@ -92,6 +98,11 @@ class GameRoom:
             self.AddUser(username)
             sdpkt = GRPacket('GR_SUCCESS')
             return sdpkt
+        elif rcvpkt.IsPostChat():
+            username = rcvpkt.GetUser()
+            msg = rcvpkt.GetMsg()
+            self.PostChat(username, msg)
+            return GRPacket('GR_SUCCESS')
         else:
             sdpkt = GRPacket('GR_FAIL')
             return sdpkt
@@ -172,7 +183,7 @@ class GameRoomServer:
             if self.HasRoom(roomid):
                 sdpkt = self.roomList[roomid].ParsePacket(rcvpkt)
             else:
-                sdpkt = GRPacket('GR_FAIL')
+                sdpkt = GRPacket('GR_INVALIDROOM')
         return sdpkt
 
 

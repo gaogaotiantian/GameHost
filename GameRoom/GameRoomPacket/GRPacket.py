@@ -18,7 +18,7 @@ type =
 class GRPacket:
     def __init__(self, data = ''):
         self.data = {}
-        self.validType = ['InitTest', 'CreateRoom', 'CheckRoomId', 'AskOneMessage', 'UpdateRoomInfo', 'GetRoomList', 'JoinRoom', 'Empty']
+        self.validType = ['InitTest', 'CreateRoom', 'CheckRoomId', 'AskOneMessage', 'UpdateRoomInfo', 'GetRoomList', 'JoinRoom', 'PostChat', 'InvalidRoom', 'Empty']
         self.validRoomType = ['chat_room']
         self.validTarget = ['server', 'room_generic', 'host', 'front_end']
         if data == '':
@@ -30,6 +30,8 @@ class GRPacket:
                 self.MakeSuccessRespond()
             elif data == 'GR_EMPTY':
                 self.MakeEmptyRespond()
+            elif data == 'GR_INVALIDROOM':
+                self.MakeInvalidRoomRespond()
             else:
                 raise Exception('Unknown Initialization!', data)
         else:
@@ -42,11 +44,6 @@ class GRPacket:
         self.data['direction'] = 'Request'
     def SetRespond(self):
         self.data['direction'] = 'Respond'
-    def IsRequest(self):
-        return self.data['direction'] == 'Request'
-    def IsRespond(self):
-        return self.data['direction'] == 'Respond'
-
     def SetType(self, t):
         if t in self.validType:
             self.data['type'] = t
@@ -99,6 +96,10 @@ class GRPacket:
         self.data['userList'] = userList
     def GetUserList(self):
         return self.data['userList']
+    def SetMsg(self, msg):
+        self.data['msg'] = msg
+    def GetMsg(self):
+        return self.data['msg']
     # Is functions with Get*()
     def IsInitTest(self):
         return self.GetType() == 'InitTest'
@@ -106,6 +107,11 @@ class GRPacket:
         return self.data['status'] == 'Success'
     def IsFail(self):
         return self.data['status'] == 'Fail'
+    def IsRequest(self):
+        return self.data['direction'] == 'Request'
+    def IsRespond(self):
+        return self.data['direction'] == 'Respond'
+
     def IsCreateRoom(self):
         return self.GetType() == 'CreateRoom'
     def IsCheckRoomId(self):
@@ -116,6 +122,8 @@ class GRPacket:
         return self.GetType() == 'GetRoomList'
     def IsJoinRoom(self):
         return self.GetType() == 'JoinRoom'
+    def IsPostChat(self):
+        return self.GetType() == 'PostChat'
     def IsEmpty(self):
         return self.GetType() == 'Empty'
     def IsToServer(self):
@@ -201,6 +209,20 @@ class GRPacket:
         self.SetType('JoinRoom')
         self.SetRoomId(roomid)
         self.SetUser(username)
+    def MakePostChatRequest(self, roomid, username, msg):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('PostChat')
+        self.SetRoomId(roomid)
+        self.SetUser(username)
+        self.SetMsg(msg)
+    def MakePostChatRespond(self, roomid, username, msg):
+        self.SetRespond()
+        self.SetTarget('front_end')
+        self.SetType('PostChat')
+        self.SetRoomId(roomid)
+        self.SetUser(username)
+        self.SetMsg(msg)
     def MakeEmptyRespond(self):
         self.SetSuccess()
         self.SetTarget('front_end')
@@ -211,6 +233,10 @@ class GRPacket:
     def MakeFailRespond(self):
         self.SetFail()
         self.SetRespond()
+    def MakeInvalidRoomRespond(self):
+        self.SetFail()
+        self.SetRespond()
+        self.SetType('InvalidRoom')
     def Serialize(self):
         return json.dumps(self.data)
     def Deserialize(self, data):
