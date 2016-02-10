@@ -3,28 +3,14 @@ import socket
 import os
 import time
 from GameRoomPacket.GRPacket import GRPacket
-class User:
-    def __init__(self, username):
-        self.lastActivate = time.time()
-        self.username = username
-        self.msgList = []
-    def AddMsg(self, pkt):
-        self.msgList.append(pkt)
-    def GetMsg(self):
-        self.Refresh()
-        if len(self.msgList) == 0:
-            return GRPacket('GR_EMPTY')
-        else:
-            return self.msgList.pop(0)
-    def Refresh(self):
-        self.lastActivate = time.time()
-    def CheckTimeInterval(self, interval):
-        return time.time() - self.lastActivate > interval
+from User import User
+from Gomoku import Gomoku
 
 class GameRoom:
     def __init__(self, roomid, roomType):
         self.roomid = roomid
         self.roomType = roomType
+        self.game = None
         self.admin = ''
         self.userList = {}
         self.msgQueueList = {}
@@ -33,6 +19,10 @@ class GameRoom:
         self.lastCheckTime = time.time()
     def SetAdmin(self, username):
         self.admin = username
+    def GetAdmin(self):
+        return self.admin
+    def HasAdmin(self):
+        return self.HasUser(self.GetAdmin())
     def AddUser(self, username):
         if username in self.userList:
             self.GenRoomInfoUpdate()
@@ -41,6 +31,8 @@ class GameRoom:
             self.userList[username] = User(username)
             self.GenRoomInfoUpdate()
             return True
+    def HasUser(self, username):
+        return username in self.userList
     def RemoveUser(self, username):
         try:
             del self.userList[username]
@@ -84,13 +76,25 @@ class GameRoom:
             return GRPacket('GR_INVALIDROOM')
     def GetUserNum(self):
         return len(self.userList)
+    def StartGame(self, playerList):
+        if len(playerList) == 2:
+            self.game = Gomoku(playerList, self.userList)
+            self.game.StartGame(playerList)
+            return GRPacket('GR_SUCCESS')
+        else:
+            return GRPacket('GR_FAIL')
     def PostChat(self, username, msg):
         pkt = GRPacket()
         pkt.MakePostChatRespond(self.roomid, username, msg)
         self.SendPktToEveryone(pkt)
     def ParsePacket(self, rcvpkt):
         assert rcvpkt.GetRoomId() == self.roomid
-        if rcvpkt.IsAskOneMessage():
+        if rcvpkt.IsToGomoku():
+            if self.game != None:
+                return self.game.ParsePacket(rcvpkt)
+            else:
+                return GRPacket('GR_FAIL')
+        elif rcvpkt.IsAskOneMessage():
             username = rcvpkt.GetUser()
             return self.GetOneMsg(username)
         elif rcvpkt.IsJoinRoom():
@@ -103,6 +107,25 @@ class GameRoom:
             msg = rcvpkt.GetMsg()
             self.PostChat(username, msg)
             return GRPacket('GR_SUCCESS')
+        elif rcvpkt.IsLeaveRoom():
+            username = rcvpkt.GetUser()
+            self.RemoveUserList([username])
+            return GRPacket('GR_SUCCESS')
+        elif rcvpkt.IsType('GameExist'):
+            sdpkt = GRPacket()
+            if self.game == None:
+                sdpkt.MakeGameExistRespond(False)
+            else:
+                sdpkt.MakeGameExistRespond(True)
+            return sdpkt
+        elif rcvpkt.IsKickUserList():
+            userList = rcvpkt.GetUserList()
+            self.RemoveUserList(userList)
+            return GRPacket('GR_SUCCESS')
+        elif rcvpkt.IsStartGame():
+            playerList = rcvpkt.GetUserList()
+            self.StartGame(playerList)
+            return self.StartGame(playerList)
         else:
             sdpkt = GRPacket('GR_FAIL')
             return sdpkt
@@ -146,7 +169,8 @@ class GameRoomServer:
         rmvIdList = []
         for roomid in self.roomList:
             self.roomList[roomid].CheckEverything()
-            if self.roomList[roomid].GetUserNum() == 0:
+            if (self.roomList[roomid].GetUserNum() == 0 or
+                    not self.roomList[roomid].HasAdmin()):
                 rmvIdList.append(roomid)
         for rmvId in rmvIdList:
             self.RemoveRoom(rmvId)
@@ -189,7 +213,7 @@ class GameRoomServer:
 
 if __name__ == "__main__":
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    conn = '/tmp/GameRoomConn'
+    conn = '/home/gaotian/Programs/GameHost/GameRoomConn'
     if not os.path.exists(conn):
         os.mknod(conn)
     if os.path.exists(conn):
@@ -207,5 +231,8 @@ if __name__ == "__main__":
         #    print 'Got an exception!', e, 'when reading input data'
         #    print data
         #    resppkt = GRPacket('GR_FAIL')
-        print "Send data :" + (resppkt.Serialize())
+        try:
+            print "Send data :" + (resppkt.Serialize())
+        except Exception as e:
+            print e, resppkt
         connection.send(resppkt.Serialize())

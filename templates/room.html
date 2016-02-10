@@ -3,31 +3,136 @@
 <div>
 <script>
 roomid = {{roomid}}
+game_url = "{{game_url}}"
 function ParsePacket(pktStr) {
-  pkt = JSON.parse(pktStr)
-  console.log(pkt)
-  console.log(pkt['type'])
+  var pkt = JSON.parse(pktStr)
   if (pkt['type'] == 'UpdateRoomInfo') {
-    $('#room_number').text('您现在在' + roomid + '号房间');
-    $('#room_admin').text('房主是' + pkt['roomAdmin']);
-    $('#user_list').text('用户有' + pkt['userList']);
+    UpdateRoomInfo(pkt);
   } else if (pkt['type'] == 'PostChat') {
-    $('#chat_show_text').val($('#chat_show_text').val() + pkt['user'] + ': ' + pkt['msg'] + '\n')
+    $('#chat_show_text').val($('#chat_show_text').val() + pkt['username'] + ': ' + pkt['msg'] + '\n')
   } else if (pkt['type'] == 'InvalidRoom') {
       window.location.href = '{{index_url}}';
+  } else if (pkt['type'] == 'Empty') {
   } else {
       console.log(pkt)
+  }
+}
+function UpdateRoomInfo(pkt) {
+  $('#room_number').text('您现在在' + roomid + '号房间');
+  $('#room_admin').text('房主是' + pkt['roomAdmin']);
+  var isAdmin = username == pkt['roomAdmin'];
+  $('#user_list').empty();
+  for (var i in pkt['userList']) {
+      user = pkt['userList'][i]
+      $('#user_list').append(user + '<input type="checkbox" name="kick_user" value="' + user + '">')
+  }
+  $('#user_list').append("</br>")
+  var kickButton = $('<input/>').attr({
+                     type : "button", 
+                     id : "kick_user",
+                     class : "btn btn-default", 
+                     onclick : "KickUserList()", 
+                     value : "Kick User"
+                   });
+
+  var leaveButton = $('<input/>').attr({
+                      type : "button", 
+                      id : "leave_room", 
+                      class : "btn btn-default", 
+                      onclick : "LeaveRoom()", 
+                      value : "Leave Room"
+                    });
+  var startButton = $('<input/>').attr({
+                      type : "button", 
+                      id : "start_game", 
+                      class : "btn btn-default", 
+                      onclick : "StartGame()", 
+                      value : "Start Game"
+                    });
+  // Special settings for admin
+  if (isAdmin) {
+    $('#user_list').append(kickButton);
+  } else {
+    $('#user_list input').each(function() {
+      $(this).attr('disabled', 'disabled');
+    });
+  }
+
+  $('#user_list').append(leaveButton);
+  $('#user_list').append(startButton);
+}
+function CheckSuccess(pktStr) {
+  pkt = JSON.parse(pktStr)
+  if (pkt['status'] == 'Success') {
+    return True;
   }
 }
 function AskOneMsg() {
   $.post("{{action_url}}", 
   {
     action: 'AskOneMsg',
+    target: 'room_generic',
     roomid: roomid
   }, 
   function(data, status) {
     ParsePacket(data);
   });
+}
+function LeaveRoom() {
+  $.post("{{action_url}}",
+  {
+    action: 'LeaveRoom',
+    roomid: roomid
+  },
+  function(data, status) {
+    pkt = JSON.parse(data)
+    if (pkt['status'] == 'Success') {
+      window.location.href = '{{index_url}}';
+    }
+  });
+}
+function KickUserList() {
+  var userList = [];
+  $('#user_list input:checked').each(function() {
+    userList.push($(this).attr('value'))      
+  });
+  $.post("{{action_url}}",
+  {
+    action: 'KickUserList',
+    roomid: roomid,
+    userList: userList
+  },
+  function(data, status) {
+    pkt = JSON.parse(data)
+    if (pkt['status'] == 'Success') {
+    }
+  });
+
+}
+function StartGame() {
+  var userList = [];
+  $('#user_list input:checked').each(function() {
+    userList.push($(this).attr('value'))      
+  });
+
+  $.post("{{action_url}}",
+  {
+    action: 'StartGame',
+    roomid: roomid,
+    userList : userList
+  },
+  function(data, status) {
+    pkt = JSON.parse(data)
+    if (pkt['status'] != 'Success') {
+      alert("can't start game!")
+    }
+  });
+
+  $('#game_iframe').attr({
+    width:$(window).width(),
+    height:$(window).height()
+  });
+
 }
 function PostChat() {
   var msg = $("#chat_area").val();
@@ -42,12 +147,26 @@ function PostChat() {
     ParsePacket(data);
   });
 }
+function GetCookie(cname) {
+    var name = cname + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0; i<ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1);
+        if (c.indexOf(name) == 0) return c.substring(name.length,c.length);
+    }
+    return "";
+}
 $(document).ready(function() {
   AskOneMsg();
   setInterval(AskOneMsg, 1000);
+  username = GetCookie('username');
+  $('#game_iframe').attr({
+    width:$(window).width(),
+    height:$(window).height()
+  });
   // Detect enter from textarea
   $("#chat_area").keypress(function(e) {
-    console.log(e)
     if (e.which == 10 || e.which == 13) {
       e.preventDefault();
       PostChat();
@@ -56,16 +175,19 @@ $(document).ready(function() {
 });
 </script>
   <div class='basic_room_info'>
-    <p id='room_number'>您现在在号房间</h1>
-    <p id='room_admin'>房主是</h2>
-    <p id='user_list'>用户有</p>
+    <p id='room_number'>您现在在号房间</p>
+    <p id='room_admin'>房主是</p>
+    <div id='user_list'></div>
   </div>
   <div>
     <textarea id='chat_show_text', rows="15", cols="100", readonly></textarea><br>
     <div class="form-inline">
     <textarea id='chat_area', rows = "3", cols="80"></textarea>
-    <button id='send_chat' onclick='PostChat()'>Send</button>
+    <button id='send_chat' class="btn btn-default" onclick='PostChat()'>Send</button>
     </div>
+  </div>
+  <div id='game_room_div'>
+    <iframe id='game_iframe' src='{{game_url}}' width=0 height=0></iframe>
   </div>
 </div>
 {% endblock %}

@@ -18,9 +18,12 @@ type =
 class GRPacket:
     def __init__(self, data = ''):
         self.data = {}
-        self.validType = ['InitTest', 'CreateRoom', 'CheckRoomId', 'AskOneMessage', 'UpdateRoomInfo', 'GetRoomList', 'JoinRoom', 'PostChat', 'InvalidRoom', 'Empty']
-        self.validRoomType = ['chat_room']
-        self.validTarget = ['server', 'room_generic', 'host', 'front_end']
+        self.validGeneralType = ['AskOneMessage', 'Empty']
+        self.validServerType = ['InitTest', 'CreateRoom', 'CheckRoomId', 'UpdateRoomInfo', 'GetRoomList', 'JoinRoom']
+        self.validGameroomType = ['PostChat', 'LeaveRoom', 'KickUserList', 'InvalidRoom', 'GameInfo', 'StartGame', 'GameExist', 'GetGameInfo']
+        self.validGomokuType = ['GomokuMove', 'GomokuRestart']
+        self.validRoomType = ['chat_room', 'gomoku_room']
+        self.validTarget = ['server', 'room_generic', 'room_gomoku', 'host', 'front_end']
         if data == '':
             self.data['status'] = 'Success'
         elif data.startswith('GR_'):
@@ -45,7 +48,10 @@ class GRPacket:
     def SetRespond(self):
         self.data['direction'] = 'Respond'
     def SetType(self, t):
-        if t in self.validType:
+        if (t in self.validGeneralType or 
+            t in self.validGameroomType or
+            t in self.validGomokuType or 
+            t in self.validServerType):
             self.data['type'] = t
         else:
             raise Exception('Wrong type!', t)
@@ -69,10 +75,17 @@ class GRPacket:
     def GetRoomType(self):
         return self.data['roomType']
 
+    def SetData(self, dataKey, dataValue):
+        self.data[dataKey] = dataValue
+    def GetData(self, dataKey):
+        if dataKey in self.data:
+            return self.data[dataKey]
+        else:
+            raise Exception("No data key for " + dataKey)
     def SetUser(self, username):
-        self.data['user'] = username
+        self.data['username'] = username
     def GetUser(self):
-        return self.data['user']
+        return self.data['username']
     def SetRoomAdmin(self, roomAdmin):
         self.data['roomAdmin'] = roomAdmin
     def GetRoomAdmin(self):
@@ -88,7 +101,8 @@ class GRPacket:
     def SetResult(self, result):
         self.data['result'] = result
     def GetResult(self):
-        if self.data['type'] == 'CheckRoomId':
+        if (self.data['type'] == 'CheckRoomId' or 
+                self.data['type'] == 'GameExist'):
             return self.data['result']
         else:
             raise Exception("Tried to read result when not supposed to")
@@ -96,11 +110,24 @@ class GRPacket:
         self.data['userList'] = userList
     def GetUserList(self):
         return self.data['userList']
+    def SetGameInfo(self, gameInfo):
+        self.data['gameInfo'] = gameInfo
+    def GetGameInfo(self, gameInfo):
+        return self.data['gameInfo']
     def SetMsg(self, msg):
         self.data['msg'] = msg
     def GetMsg(self):
         return self.data['msg']
     # Is functions with Get*()
+    def IsType(self, t):
+        if (t in self.validGeneralType or 
+            t in self.validGameroomType or
+            t in self.validGomokuType or 
+            t in self.validServerType):
+            return self.data['type'] == t
+        else:
+            raise Exception("Wrong type", t)
+
     def IsInitTest(self):
         return self.GetType() == 'InitTest'
     def IsSuccess(self):
@@ -124,12 +151,21 @@ class GRPacket:
         return self.GetType() == 'JoinRoom'
     def IsPostChat(self):
         return self.GetType() == 'PostChat'
+    def IsLeaveRoom(self):
+        return self.GetType() == 'LeaveRoom'
+    def IsKickUserList(self):
+        return self.GetType() == 'KickUserList'
+    def IsStartGame(self):
+        return self.GetType() == 'StartGame'
     def IsEmpty(self):
         return self.GetType() == 'Empty'
+    # Target Check
     def IsToServer(self):
         return self.GetTarget() == 'server'
     def IsToRoom(self):
         return self.GetTarget().startswith('room')
+    def IsToGomoku(self):
+        return self.GetTarget() == 'room_gomoku'
     # Directly make a packet using internal functions
     def MakeInitTestRequest(self):
         self.SetSuccess()
@@ -179,9 +215,9 @@ class GRPacket:
         self.SetRoomId(roomid)
         self.SetRoomAdmin(roomAdmin)
         self.SetUserList(userList)
-    def MakeAskOneMessageRequest(self, roomid, username):
+    def MakeAskOneMessageRequest(self, roomid, username, target):
         self.SetRequest()
-        self.SetTarget('room_generic')
+        self.SetTarget(target)
         self.SetType('AskOneMessage')
         self.SetRoomId(roomid)
         self.SetUser(username)
@@ -223,6 +259,56 @@ class GRPacket:
         self.SetRoomId(roomid)
         self.SetUser(username)
         self.SetMsg(msg)
+    def MakeLeaveRoomRequest(self, roomid, username):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('LeaveRoom')
+        self.SetRoomId(roomid)
+        self.SetUser(username)
+    def MakeKickUserListRequest(self, roomid, userList):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('KickUserList')
+        self.SetRoomId(roomid)
+        self.SetUserList(userList)
+    def MakeStartGameRequest(self, roomid, userList):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('StartGame')
+        self.SetRoomId(roomid)
+        self.SetUserList(userList)
+    def MakeGameExistRequest(self, roomid):
+        self.SetRequest()
+        self.SetTarget('room_generic')
+        self.SetType('GameExist')
+        self.SetRoomId(roomid)
+    def MakeGetGameInfoRequest(self, roomid, target):
+        self.SetRequest()
+        self.SetTarget(target)
+        self.SetRoomId(roomid)
+        self.SetType('GetGameInfo')
+    def MakeGameExistRespond(self, result):
+        self.SetSuccess()
+        self.SetRespond()
+        self.SetTarget('server')
+        self.SetType('GameExist')
+        self.SetResult(result)
+    # Gomoku related
+    def MakeGomokuMoveRequest(self, roomid, username, x, y):
+        self.SetRequest()
+        self.SetTarget('room_gomoku')
+        self.SetType('GomokuMove')
+        self.SetRoomId(roomid)
+        self.SetData('username', username)
+        self.SetData('x', x)
+        self.SetData('y', y)
+    def MakeGomokuInfoRespond(self, gameInfo):
+        self.SetRespond()
+        self.SetSuccess()
+        self.SetTarget('front_end')
+        self.SetType('GameInfo')
+        self.SetGameInfo(gameInfo)
+    # Gomoku end
     def MakeEmptyRespond(self):
         self.SetSuccess()
         self.SetTarget('front_end')

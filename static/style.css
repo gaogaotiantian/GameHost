@@ -1,9 +1,5 @@
-body {
-    text-align: center;
-}
-p {
-    font-family: 'Times New Roman';
-    font-size: 30px;
+span, p {
+    font-size: 2em;
 }
 body{
     text-align: center;
@@ -13,7 +9,8 @@ body{
 }
 #join_room_sel {
     overflow-y:auto;
-    width:20em;
+    width:70%;
+    margin:1em;
 }
 #chat_show_text {
     margin:1em;
@@ -32,3 +29,4 @@ body{
     height:5em;
     width:10%;
 }
+

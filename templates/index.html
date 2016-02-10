@@ -29,27 +29,40 @@ $(function() {
   RefreshRoomList();
 });
 </script>
-<div id='content'>
-  <div id='div_username_input'>
-    <form action="index.html" method="post">
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-12">
       <p>Logged in as <b>{{username}}</b></p>
-      Username: <input name='username'>
-      <input type='submit', value='Log in'><br>
+    </div>
+  </div>
+  <div class="form-group" id='div_username_input'>
+    <form action="index.html" method="post">
+      <label for="username_input">Username:</label> 
+      <input type="username" class="form-control" name='username' id='username_input' placeholder="Username">
+      <input class="btn btn-default" type='submit' value='Log in'><br>
     </form>
   </div>
   <div id='div_create_room'>
     <form action="create_room" method='post'>
-        <input type='radio' name='room_type' value='chat_room' checked> Chat Room<br>
-        <input type='submit' value='Create Room'><br>
+      <div class="row">
+        <input type='radio' name='room_type' value='chat_room' checked> Chat Room     <input type='radio' name='room_type' value='gomoku_room' checked> Gomoko Room<br>
+      </div>
+      <div class="row">
+        <input type='submit' class="btn btn-default" value='Create Room'>
+      </div>
     </form>
   </div>
-  <div id='div_join_room'>
+  <div id='div_join_room' class="form-group">
     <form action="join_room" method='post'>
       <select id="join_room_sel" name="roomid" size=10>
-      </select><br>
-      <input type="submit" value='Join Room'>
+      </select>
+      <div class="row">
+        <input type="submit" class="btn btn-default" value='Join Room'>
+      </div>
     </form>
-    <button onclick='RefreshRoomList()'>Refresh</button>
+  </div>
+  <div class="row">
+    <button class="btn btn-default" onclick='RefreshRoomList()'>Refresh</button>
   </div>
 </div>
 {% endblock %}
