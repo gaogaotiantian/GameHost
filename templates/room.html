@@ -10,6 +10,7 @@ function ParsePacket(pktStr) {
     UpdateRoomInfo(pkt);
   } else if (pkt['type'] == 'PostChat') {
     $('#chat_show_text').val($('#chat_show_text').val() + pkt['username'] + ': ' + pkt['msg'] + '\n')
+    $('#chat_show_text').scrollTop($('#chat_show_text')[0].scrollHeight);
   } else if (pkt['type'] == 'InvalidRoom') {
       window.location.href = '{{index_url}}';
   } else if (pkt['type'] == 'Empty') {
@@ -165,6 +166,12 @@ $(document).ready(function() {
     width:$(window).width(),
     height:$(window).height()
   });
+  $('#chat_show_text').change(function() {
+    console.log("123")
+    console.log($(this).scrollTop)
+    console.log($(this)[0].scrollHeight)
+    $('#chat_show_text').scrollTop($('#chat_show_text')[0].scrollHeight);
+  })
   // Detect enter from textarea
   $("#chat_area").keypress(function(e) {
     if (e.which == 10 || e.which == 13) {
