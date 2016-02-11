@@ -64,7 +64,7 @@ class Gomoku:
 
     def ParsePacket(self, rcvpkt):
         assert rcvpkt.IsToGomoku()
-        if rcvpkt.IsAskOneMessage():
+        if rcvpkt.IsType('AskOneMessage'):
             username = rcvpkt.GetUser()
             return self.GetOneMsg(username)
         elif rcvpkt.IsType('GetGameInfo'):
@@ -75,7 +75,7 @@ class Gomoku:
             x = int(rcvpkt.GetData('x'))
             y = int(rcvpkt.GetData('y'))
             return self.Move(username, x, y)
-        elif rcvpkt.IsGomokuRestart():
+        elif rcvpkt.IsType('GomokuRestart'):
             username = rcvpkt.GetUser()
             return self.Restart(username)
         else:

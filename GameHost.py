@@ -43,7 +43,6 @@ class GameRoomClient:
         sdpkt.MakeCreateRoomRequest(username, roomType)
         rcvpkt = self.SendAndRecvPacket(sdpkt)
         if rcvpkt.IsSuccess():
-            print rcvpkt.Serialize()
             return rcvpkt.GetRoomId()
         else:
             return None
@@ -174,7 +173,13 @@ def game(roomid):
     if username == '' or username == None or not gameRoom.HasRoom(roomid):
         return 'Invalid username or roomid!'
     else:
-        return render_template('gomoku.html', roomid = roomid, action_url = url_for('action'))
+        roomList = gameRoom.GetRoomList().GetRoomList()
+        roomInfo = roomList[roomid]
+        roomType = roomInfo['roomType']
+        if roomType == 'gomoku_room':
+            return render_template('gomoku.html', roomid = roomid, action_url = url_for('action'))
+        else:
+            return ''
 
 @app.route('/room/<roomid>')
 def room(roomid):
@@ -216,4 +221,4 @@ def join_room():
             return redirect(url_for('room', roomid = roomid))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='192.168.0.25')
+    app.run(debug=True, threaded=True, host='192.168.0.25')

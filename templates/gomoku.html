@@ -98,16 +98,16 @@ $(function() {
         canvas.width = canvas.width;
         context = canvas.getContext("2d");
 
-        for (var i = 0; i <= 640; i += 40) {//绘制棋盘的线
+        for (var i = 40; i < 640; i += 40) {//绘制棋盘的线
             context.beginPath();
-            context.moveTo(0, i);
-            context.lineTo(640, i);
+            context.moveTo(40, i);
+            context.lineTo(600, i);
             context.closePath();
             context.stroke();
 
             context.beginPath();
-            context.moveTo(i, 0);
-            context.lineTo(i, 640);
+            context.moveTo(i, 40);
+            context.lineTo(i, 600);
             context.closePath();
             context.stroke();
         }

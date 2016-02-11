@@ -96,7 +96,7 @@ class GRPacket:
         return self.data['roomid']
     def SetRoomList(self, roomList):
         self.data['roomList'] = roomList
-    def GetRoomList(self, roomList):
+    def GetRoomList(self):
         return self.data['roomList']
     def SetResult(self, result):
         self.data['result'] = result
@@ -138,25 +138,6 @@ class GRPacket:
         return self.data['direction'] == 'Request'
     def IsRespond(self):
         return self.data['direction'] == 'Respond'
-
-    def IsCreateRoom(self):
-        return self.GetType() == 'CreateRoom'
-    def IsCheckRoomId(self):
-        return self.GetType() == 'CheckRoomId'
-    def IsAskOneMessage(self):
-        return self.GetType() == 'AskOneMessage'
-    def IsGetRoomList(self):
-        return self.GetType() == 'GetRoomList'
-    def IsJoinRoom(self):
-        return self.GetType() == 'JoinRoom'
-    def IsPostChat(self):
-        return self.GetType() == 'PostChat'
-    def IsLeaveRoom(self):
-        return self.GetType() == 'LeaveRoom'
-    def IsKickUserList(self):
-        return self.GetType() == 'KickUserList'
-    def IsStartGame(self):
-        return self.GetType() == 'StartGame'
     def IsEmpty(self):
         return self.GetType() == 'Empty'
     # Target Check

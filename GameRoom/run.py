@@ -77,12 +77,12 @@ class GameRoom:
     def GetUserNum(self):
         return len(self.userList)
     def StartGame(self, playerList):
-        if len(playerList) == 2:
-            self.game = Gomoku(playerList, self.userList)
-            self.game.StartGame(playerList)
-            return GRPacket('GR_SUCCESS')
-        else:
-            return GRPacket('GR_FAIL')
+        if self.roomType == 'gomoku_room':
+            if len(playerList) == 2:
+                self.game = Gomoku(playerList, self.userList)
+                self.game.StartGame(playerList)
+                return GRPacket('GR_SUCCESS')
+        return GRPacket('GR_FAIL')
     def PostChat(self, username, msg):
         pkt = GRPacket()
         pkt.MakePostChatRespond(self.roomid, username, msg)
@@ -94,20 +94,19 @@ class GameRoom:
                 return self.game.ParsePacket(rcvpkt)
             else:
                 return GRPacket('GR_FAIL')
-        elif rcvpkt.IsAskOneMessage():
+        elif rcvpkt.IsType('AskOneMessage'):
             username = rcvpkt.GetUser()
             return self.GetOneMsg(username)
-        elif rcvpkt.IsJoinRoom():
+        elif rcvpkt.IsType('JoinRoom'):
             username = rcvpkt.GetUser()
             self.AddUser(username)
-            sdpkt = GRPacket('GR_SUCCESS')
-            return sdpkt
-        elif rcvpkt.IsPostChat():
+            return GRPacket('GR_SUCCESS')
+        elif rcvpkt.IsType('PostChat'):
             username = rcvpkt.GetUser()
             msg = rcvpkt.GetMsg()
             self.PostChat(username, msg)
             return GRPacket('GR_SUCCESS')
-        elif rcvpkt.IsLeaveRoom():
+        elif rcvpkt.IsType('LeaveRoom'):
             username = rcvpkt.GetUser()
             self.RemoveUserList([username])
             return GRPacket('GR_SUCCESS')
@@ -118,11 +117,11 @@ class GameRoom:
             else:
                 sdpkt.MakeGameExistRespond(True)
             return sdpkt
-        elif rcvpkt.IsKickUserList():
+        elif rcvpkt.IsType('KickUserList'):
             userList = rcvpkt.GetUserList()
             self.RemoveUserList(userList)
             return GRPacket('GR_SUCCESS')
-        elif rcvpkt.IsStartGame():
+        elif rcvpkt.IsType('StartGame'):
             playerList = rcvpkt.GetUserList()
             self.StartGame(playerList)
             return self.StartGame(playerList)
@@ -134,7 +133,7 @@ class GameRoomServer:
     def __init__(self):
         self.roomList = {}
         self.currRoomId = 10000
-        self.validRoomType = ['chat_room']
+        self.validRoomType = ['chat_room', 'gomoku_room']
         self.lastCheckTime = time.time()
         self.checkInterval = 10
     def CreateRoom(self, username, roomType):
@@ -148,6 +147,9 @@ class GameRoomServer:
             self.currRoomId += 1
             return roomid
         else:
+            print type(roomType)
+            print self.validRoomType, roomType
+
             raise Exception("roomType %s wrong or roomid %d duplicate" % (roomType, self.currRoomId))
     def RemoveRoom(self, roomid):
         if roomid in self.roomList:
@@ -155,13 +157,13 @@ class GameRoomServer:
         else:
             raise Exception("Try to remove room %s but it did not exist" % roomid)
     def GetRoomList(self):
-        roomlst = []
+        roomlst = {}
         for room in self.roomList.itervalues():
             data = {}
             data['roomid'] = room.roomid
             data['roomType'] = room.roomType
             data['roomAdmin'] = room.admin
-            roomlst.append(data)
+            roomlst[room.roomid] = data
         return roomlst
     def HasRoom(self, roomid):
         return roomid in self.roomList
@@ -185,24 +187,24 @@ class GameRoomServer:
         assert rcvpkt.IsRequest()
         # If the packet is for server
         if rcvpkt.IsToServer():
-            if rcvpkt.IsInitTest():
+            if rcvpkt.IsType('InitTest'):
                 sdpkt.MakeInitTestRespond()
-            elif rcvpkt.IsCreateRoom() :
+            elif rcvpkt.IsType('CreateRoom') :
                 user = rcvpkt.GetUser()
                 roomType = rcvpkt.GetRoomType()
                 roomid = self.CreateRoom(user, roomType)
                 sdpkt.MakeCreateRoomRespond(username = user, roomid = roomid)
-            elif rcvpkt.IsCheckRoomId():
+            elif rcvpkt.IsType('CheckRoomId'):
                 roomid = rcvpkt.GetRoomId()
                 hasRoomId = self.HasRoom(roomid)
                 sdpkt.MakeHasRoomRespond(roomid, result = hasRoomId)
-            elif rcvpkt.IsGetRoomList():
+            elif rcvpkt.IsType('GetRoomList'):
                 roomList = self.GetRoomList()
                 sdpkt.MakeGetRoomListRespond(roomList)
             else:
                 sdpkt.MakeFailRespond()
         # If the packet is for a specific room
-        elif rcvpkt.IsToRoom:
+        elif rcvpkt.IsToRoom():
             roomid = rcvpkt.GetRoomId()
             if self.HasRoom(roomid):
                 sdpkt = self.roomList[roomid].ParsePacket(rcvpkt)
